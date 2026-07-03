@@ -5,8 +5,14 @@ import { TILE_TYPES } from '@/constants/tiles'
 
 const MAX_HISTORY = 50
 
+let _layerCounter = 1
+function nextLayerId(): string {
+  _layerCounter++
+  return `layer-${_layerCounter}`
+}
+
 export interface MapStore {
-  tiles: Record<string, string | null>
+  tiles: Record<string, Record<string, string | null>>
   activeTileType: string
   currentTool: ToolType
   activePreset: Preset | null
@@ -27,11 +33,34 @@ export interface MapStore {
   undo: () => void
   redo: () => void
   initWorld: (config: WorldConfig) => void
-  importMap: (data: { tiles: Record<string, string | null>; worldName?: string; tileSize?: number; themeId?: string }) => void
-  exportMap: () => { tiles: Record<string, string | null>; worldName: string; tileSize: number; themeId: string; version: number }
+  importMap: (data: {
+    tiles?: Record<string, string | null>
+    layerTiles?: Record<string, Record<string, string | null>>
+    layers?: Layer[]
+    worldName?: string
+    tileSize?: number
+    themeId?: string
+  }) => void
+  exportMap: () => {
+    tiles: Record<string, string | null>
+    layerTiles: Record<string, Record<string, string | null>>
+    layers: Layer[]
+    worldName: string
+    tileSize: number
+    themeId: string
+    version: number
+  }
   getTile: (x: number, y: number) => string | null
   floodFill: (x: number, y: number, fillTileTypeId: string) => void
   pushHistory: () => void
+
+  addLayer: (name?: string) => void
+  removeLayer: (index: number) => void
+  setActiveLayer: (index: number) => void
+  toggleLayerVisibility: (index: number) => void
+  toggleLayerLock: (index: number) => void
+  renameLayer: (index: number, name: string) => void
+  activeLayerLocked: () => boolean
 }
 
 export const useMapStore = create<MapStore>()(
@@ -40,13 +69,18 @@ export const useMapStore = create<MapStore>()(
     activeTileType: 'wall',
     currentTool: 'brush',
     activePreset: null,
-    layers: [{ id: 'layer-0', name: 'Ground', visible: true, locked: false }],
+    layers: [{ id: 'layer-1', name: 'Ground', visible: true, locked: false }],
     activeLayer: 0,
     worldName: 'Untitled',
     tileSize: 24,
     themeId: 'ansi-16',
     history: [],
     historyIndex: -1,
+
+    activeLayerLocked: () => {
+      const state = get()
+      return state.layers[state.activeLayer]?.locked ?? false
+    },
 
     pushHistory: () => {
       const state = get()
@@ -61,26 +95,34 @@ export const useMapStore = create<MapStore>()(
     },
 
     setTile: (x, y, tileTypeId) => {
+      const state = get()
+      const layerId = state.layers[state.activeLayer]?.id
+      if (!layerId) return
       get().pushHistory()
       set((draft) => {
         const key = `${x},${y}`
+        if (!draft.tiles[layerId]) draft.tiles[layerId] = {}
         if (tileTypeId === null || tileTypeId === 'void') {
-          delete draft.tiles[key]
+          delete draft.tiles[layerId][key]
         } else {
-          draft.tiles[key] = tileTypeId
+          draft.tiles[layerId][key] = tileTypeId
         }
       })
     },
 
     setTiles: (entries) => {
+      const state = get()
+      const layerId = state.layers[state.activeLayer]?.id
+      if (!layerId) return
       get().pushHistory()
       set((draft) => {
+        if (!draft.tiles[layerId]) draft.tiles[layerId] = {}
         for (const [x, y, tileTypeId] of entries) {
           const key = `${x},${y}`
           if (tileTypeId === null || tileTypeId === 'void') {
-            delete draft.tiles[key]
+            delete draft.tiles[layerId][key]
           } else {
-            draft.tiles[key] = tileTypeId
+            draft.tiles[layerId][key] = tileTypeId
           }
         }
       })
@@ -129,7 +171,12 @@ export const useMapStore = create<MapStore>()(
       draft.worldName = config.worldName
       draft.tileSize = config.tileSize
       draft.themeId = config.themeId
-      draft.tiles = config.initialTiles ? { ...config.initialTiles } : {}
+      const layerId = 'layer-1'
+      draft.layers = [{ id: layerId, name: 'Ground', visible: true, locked: false }]
+      draft.activeLayer = 0
+      draft.tiles = config.initialTiles
+        ? { [layerId]: { ...config.initialTiles } }
+        : { [layerId]: {} }
       draft.history = []
       draft.historyIndex = -1
       draft.currentTool = 'brush'
@@ -140,7 +187,19 @@ export const useMapStore = create<MapStore>()(
     importMap: (data) => {
       get().pushHistory()
       set((draft) => {
-        draft.tiles = { ...data.tiles }
+        if (data.layerTiles && data.layers && data.layers.length > 0) {
+          draft.tiles = {}
+          for (const [id, layerTiles] of Object.entries(data.layerTiles)) {
+            draft.tiles[id] = { ...layerTiles }
+          }
+          draft.layers = data.layers.map((l) => ({ ...l }))
+          draft.activeLayer = 0
+        } else if (data.tiles) {
+          const layerId = 'layer-1'
+          draft.tiles = { [layerId]: { ...data.tiles } }
+          draft.layers = [{ id: layerId, name: 'Ground', visible: true, locked: false }]
+          draft.activeLayer = 0
+        }
         if (data.worldName) draft.worldName = data.worldName
         if (data.tileSize) draft.tileSize = data.tileSize
         if (data.themeId) draft.themeId = data.themeId
@@ -149,24 +208,42 @@ export const useMapStore = create<MapStore>()(
 
     exportMap: () => {
       const state = get()
+      const flatTiles: Record<string, string | null> = {}
+      for (const layer of state.layers) {
+        if (state.tiles[layer.id]) {
+          Object.assign(flatTiles, state.tiles[layer.id])
+        }
+      }
       return {
-        tiles: { ...state.tiles },
+        tiles: flatTiles,
+        layerTiles: { ...state.tiles },
+        layers: state.layers.map((l) => ({ ...l })),
         worldName: state.worldName,
         tileSize: state.tileSize,
         themeId: state.themeId,
-        version: 1,
+        version: 2,
       }
     },
 
     getTile: (x, y) => {
+      const state = get()
       const key = `${x},${y}`
-      return get().tiles[key] || null
+      for (let i = state.layers.length - 1; i >= 0; i--) {
+        const l = state.layers[i]
+        if (l.visible && state.tiles[l.id]?.[key]) {
+          return state.tiles[l.id][key]
+        }
+      }
+      return null
     },
 
     floodFill: (startX, startY, fillTileTypeId) => {
-      const { tiles } = get()
+      const state = get()
+      const layerId = state.layers[state.activeLayer]?.id
+      if (!layerId) return
+      const layerTiles = state.tiles[layerId] || {}
       const key = `${startX},${startY}`
-      const targetTileType = tiles[key]
+      const targetTileType = layerTiles[key]
       if (!targetTileType || targetTileType === fillTileTypeId) return
 
       get().pushHistory()
@@ -181,7 +258,7 @@ export const useMapStore = create<MapStore>()(
         if (visited.has(ck)) continue
         visited.add(ck)
 
-        const currentType = get().tiles[ck]
+        const currentType = get().tiles[layerId]?.[ck]
         if (currentType !== targetTileType) continue
 
         entries.push([cx, cy, fillTileTypeId])
@@ -198,16 +275,55 @@ export const useMapStore = create<MapStore>()(
 
       if (entries.length > 0) {
         set((draft) => {
+          if (!draft.tiles[layerId]) draft.tiles[layerId] = {}
           for (const [x, y, tid] of entries) {
             const k = `${x},${y}`
             if (tid === null || tid === 'void') {
-              delete draft.tiles[k]
+              delete draft.tiles[layerId][k]
             } else {
-              draft.tiles[k] = tid
+              draft.tiles[layerId][k] = tid
             }
           }
         })
       }
     },
+
+    addLayer: (name) => set((draft) => {
+      const id = nextLayerId()
+      draft.layers.push({ id, name: name || `Layer ${draft.layers.length}`, visible: true, locked: false })
+      draft.tiles[id] = {}
+    }),
+
+    removeLayer: (index) => set((draft) => {
+      if (draft.layers.length <= 1) return
+      const layer = draft.layers[index]
+      if (!layer) return
+      draft.layers.splice(index, 1)
+      delete draft.tiles[layer.id]
+      if (draft.activeLayer >= draft.layers.length) {
+        draft.activeLayer = draft.layers.length - 1
+      }
+    }),
+
+    setActiveLayer: (index) => set((draft) => {
+      if (index >= 0 && index < draft.layers.length) {
+        draft.activeLayer = index
+      }
+    }),
+
+    toggleLayerVisibility: (index) => set((draft) => {
+      const layer = draft.layers[index]
+      if (layer) layer.visible = !layer.visible
+    }),
+
+    toggleLayerLock: (index) => set((draft) => {
+      const layer = draft.layers[index]
+      if (layer) layer.locked = !layer.locked
+    }),
+
+    renameLayer: (index, name) => set((draft) => {
+      const layer = draft.layers[index]
+      if (layer) layer.name = name
+    }),
   }))
 )

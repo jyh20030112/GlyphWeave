@@ -16,6 +16,7 @@ export function useCanvas() {
   const placePreset = useMapStore((s) => s.placePreset)
   const floodFill = useMapStore((s) => s.floodFill)
   const tileSize = useMapStore((s) => s.tileSize)
+  const activeLayerLocked = useMapStore((s) => s.activeLayerLocked)
 
   const pointerToTile = useCallback((pointer: { x: number; y: number }): [number, number] => {
     const stage = stageRef.current
@@ -75,6 +76,8 @@ export function useCanvas() {
       return
     }
 
+    if (activeLayerLocked()) return
+
     if (activePreset) {
       placePreset(activePreset, tx, ty)
       return
@@ -110,6 +113,7 @@ export function useCanvas() {
 
     if (!isDrawing.current) return
     if (currentTool !== 'brush' && currentTool !== 'erase') return
+    if (activeLayerLocked()) return
 
     const pointer = stage.getPointerPosition()
     if (!pointer) return

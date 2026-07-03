@@ -30,6 +30,7 @@ interface MapCanvasProps {
 
 export function MapCanvas({ containerRef }: MapCanvasProps) {
   const tiles = useMapStore((s) => s.tiles)
+  const layers = useMapStore((s) => s.layers)
   const showGrid = useUiStore((s) => s.showGrid)
   const currentTool = useMapStore((s) => s.currentTool)
   const themeId = useMapStore((s) => s.themeId)
@@ -57,17 +58,22 @@ export function MapCanvas({ containerRef }: MapCanvasProps) {
 
   const visibleTiles = useMemo(() => {
     const result: { key: string; x: number; y: number; tileTypeId: string }[] = []
-    for (const [key, tileTypeId] of Object.entries(tiles)) {
-      if (!tileTypeId) continue
-      const [sx, sy] = key.split(',')
-      const x = parseInt(sx, 10)
-      const y = parseInt(sy, 10)
-      if (x >= visibleRange.minX && x <= visibleRange.maxX && y >= visibleRange.minY && y <= visibleRange.maxY) {
-        result.push({ key, x, y, tileTypeId })
+    for (const layer of layers) {
+      if (!layer.visible) continue
+      const layerTiles = tiles[layer.id]
+      if (!layerTiles) continue
+      for (const [key, tileTypeId] of Object.entries(layerTiles)) {
+        if (!tileTypeId) continue
+        const [sx, sy] = key.split(',')
+        const x = parseInt(sx, 10)
+        const y = parseInt(sy, 10)
+        if (x >= visibleRange.minX && x <= visibleRange.maxX && y >= visibleRange.minY && y <= visibleRange.maxY) {
+          result.push({ key: `${layer.id}:${key}`, x, y, tileTypeId })
+        }
       }
     }
     return result
-  }, [tiles, visibleRange])
+  }, [tiles, layers, visibleRange])
 
   const gridLineElements = useMemo(() => {
     if (!showGrid) return null
