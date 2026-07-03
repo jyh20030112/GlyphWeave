@@ -12,6 +12,7 @@ const MINIMAP_HEIGHT = 140
 
 export function Minimap({ stageRef }: MinimapProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const cachedBase = useRef<ImageData | null>(null)
   const tiles = useMapStore((s) => s.tiles)
   const layers = useMapStore((s) => s.layers)
   const themeId = useMapStore((s) => s.themeId)
@@ -43,7 +44,7 @@ export function Minimap({ stageRef }: MinimapProps) {
     return { minX, minY, maxX, maxY, w: maxX - minX + 1, h: maxY - minY + 1 }
   }, [tiles, layers])
 
-  // ── draw base tiles (only on data change) ──
+  // ── draw base tiles and cache ImageData ──
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -72,32 +73,42 @@ export function Minimap({ stageRef }: MinimapProps) {
         const colors = theme.colors[tileTypeId]
         const color = colors?.bgColor || '#000'
         ctx.fillStyle = color
-        ctx.fillRect(x * tileSize * scale, y * tileSize * scale, Math.ceil(tileSize * scale) + 0.5, Math.ceil(tileSize * scale) + 0.5)
+        ctx.fillRect(
+          x * tileSize * scale,
+          y * tileSize * scale,
+          Math.ceil(tileSize * scale) + 0.5,
+          Math.ceil(tileSize * scale) + 0.5,
+        )
       }
     }
 
-    // cache for viewport overlay
+    // cache the full base image so the animation loop can restore it
+    cachedBase.current = ctx.getImageData(0, 0, MINIMAP_WIDTH, MINIMAP_HEIGHT)
+
     canvas.dataset.scale = String(scale)
     canvas.dataset.originX = String(b.minX)
     canvas.dataset.originY = String(b.minY)
   }, [tiles, layers, themeId, tileSize, bounds])
 
-  // ── viewport rect & animation loop ──
+  // ── viewport rect overlay (animated, reuses cached base) ──
   useEffect(() => {
     let frame = 0
+
     function drawViewport() {
       const canvas = canvasRef.current
       if (!canvas) { frame = requestAnimationFrame(drawViewport); return }
       const ctx = canvas.getContext('2d')
       if (!ctx) { frame = requestAnimationFrame(drawViewport); return }
+
+      // restore the cached base tiles to wipe previous frame's overlay
+      if (cachedBase.current) {
+        ctx.putImageData(cachedBase.current, 0, 0)
+      }
+
       const stage = stageRef.current
       const scale = parseFloat(canvas.dataset.scale || '1')
       const originX = parseInt(canvas.dataset.originX || '0', 10)
       const originY = parseInt(canvas.dataset.originY || '0', 10)
-
-      // redraw just the viewport rect
-      // first restore the base image by drawing over old rect
-      // simpler: we need the base tiles, so let's not clear — just draw a transparent overlay rect
 
       if (stage) {
         const pos = stage.position()
@@ -106,8 +117,8 @@ export function Minimap({ stageRef }: MinimapProps) {
         const h = stage.height()
 
         // visible area in stage coords
-        const vx = (-pos.x) / s
-        const vy = (-pos.y) / s
+        const vx = -pos.x / s
+        const vy = -pos.y / s
         const vw = w / s
         const vh = h / s
 
@@ -117,16 +128,24 @@ export function Minimap({ stageRef }: MinimapProps) {
         const mw = vw * scale
         const mh = vh * scale
 
-        // dim overlay outside viewport
+        // dim outside viewport — only draw inside canvas bounds
         ctx.fillStyle = 'rgba(0,0,0,0.45)'
-        // top
-        ctx.fillRect(0, 0, MINIMAP_WIDTH, Math.max(0, my))
-        // bottom
-        ctx.fillRect(0, my + mh, MINIMAP_WIDTH, Math.max(0, MINIMAP_HEIGHT - my - mh))
-        // left
-        ctx.fillRect(0, Math.max(0, my), Math.max(0, mx), Math.min(mh, MINIMAP_HEIGHT - my))
-        // right
-        ctx.fillRect(mx + mw, Math.max(0, my), Math.max(0, MINIMAP_WIDTH - mx - mw), Math.min(mh, MINIMAP_HEIGHT - my))
+        // top strip
+        if (my > 0) ctx.fillRect(0, 0, MINIMAP_WIDTH, Math.min(my, MINIMAP_HEIGHT))
+        // bottom strip
+        if (my + mh < MINIMAP_HEIGHT)
+          ctx.fillRect(0, Math.max(0, my + mh), MINIMAP_WIDTH, MINIMAP_HEIGHT - Math.max(0, my + mh))
+        // left strip (between top and bottom)
+        if (mx > 0)
+          ctx.fillRect(0, Math.max(0, my), Math.min(mx, MINIMAP_WIDTH), Math.max(0, Math.min(mh, MINIMAP_HEIGHT - my)))
+        // right strip (between top and bottom)
+        if (mx + mw < MINIMAP_WIDTH)
+          ctx.fillRect(
+            Math.max(0, mx + mw),
+            Math.max(0, my),
+            MINIMAP_WIDTH - Math.max(0, mx + mw),
+            Math.max(0, Math.min(mh, MINIMAP_HEIGHT - my)),
+          )
 
         // viewport border
         ctx.strokeStyle = '#fff'
@@ -140,38 +159,42 @@ export function Minimap({ stageRef }: MinimapProps) {
 
       frame = requestAnimationFrame(drawViewport)
     }
+
     frame = requestAnimationFrame(drawViewport)
     return () => cancelAnimationFrame(frame)
   }, [stageRef, tileSize])
 
   // ── click to pan ──
-  const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const stage = stageRef.current
-    if (!stage) return
-    const canvas = canvasRef.current
-    if (!canvas) return
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const stage = stageRef.current
+      if (!stage) return
+      const canvas = canvasRef.current
+      if (!canvas) return
 
-    const rect = canvas.getBoundingClientRect()
-    const px = e.clientX - rect.left
-    const py = e.clientY - rect.top
-    const scale = parseFloat(canvas.dataset.scale || '1')
-    const originX = parseInt(canvas.dataset.originX || '0', 10)
-    const originY = parseInt(canvas.dataset.originY || '0', 10)
+      const rect = canvas.getBoundingClientRect()
+      const px = e.clientX - rect.left
+      const py = e.clientY - rect.top
+      const scale = parseFloat(canvas.dataset.scale || '1')
+      const originX = parseInt(canvas.dataset.originX || '0', 10)
+      const originY = parseInt(canvas.dataset.originY || '0', 10)
 
-    // minimap pixel → world coordinate
-    const wx = px / scale + originX * tileSize
-    const wy = py / scale + originY * tileSize
+      // minimap pixel → world coordinate
+      const wx = px / scale + originX * tileSize
+      const wy = py / scale + originY * tileSize
 
-    // center viewport on this point
-    const vw = stage.width()
-    const vh = stage.height()
-    const s = stage.scaleX()
-    stage.position({
-      x: -wx * s + vw / 2,
-      y: -wy * s + vh / 2,
-    })
-    stage.batchDraw()
-  }, [stageRef, tileSize])
+      // center viewport on this point
+      const vw = stage.width()
+      const vh = stage.height()
+      const s = stage.scaleX()
+      stage.position({
+        x: -wx * s + vw / 2,
+        y: -wy * s + vh / 2,
+      })
+      stage.batchDraw()
+    },
+    [stageRef, tileSize],
+  )
 
   return (
     <div
