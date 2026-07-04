@@ -70,22 +70,6 @@ pnpm dev
 
 > **渲染 API** 在开发模式下自动同端口可用——`GET /render?data=<base64>` 或 `POST /render`（JSON body）。详情见[服务器文档](server/index.mjs)。
 
----
-
-## 技术栈
-
-| 层         | 工具                   |
-| ---------- | ---------------------- |
-| 构建       | Vite                   |
-| UI         | React 19 + TypeScript  |
-| 画布       | Konva + react-konva    |
-| 状态管理   | Zustand + immer        |
-| 样式       | Tailwind CSS v4        |
-| 组件库     | shadcn/ui (Radix)      |
-| 图标       | Lucide                 |
-| 渲染 API   | @napi-rs/canvas        |
-
-
 
 ## 键盘快捷键
 

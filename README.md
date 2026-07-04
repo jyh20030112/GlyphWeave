@@ -70,22 +70,6 @@ Open `http://localhost:5173` — choose a world name, tile size, and theme, then
 
 > The **Render API** is automatically available on the same port — `GET /render?data=<base64>` or `POST /render` with a JSON body. See the [render server docs](server/index.mjs) for details.
 
----
-
-## Tech Stack
-
-| Layer       | Package                |
-| ----------- | ---------------------- |
-| Build       | Vite                   |
-| UI          | React 19 + TypeScript  |
-| Canvas      | Konva + react-konva    |
-| State       | Zustand + immer        |
-| Styling     | Tailwind CSS v4        |
-| Components  | shadcn/ui (Radix)      |
-| Icons       | Lucide                 |
-| Render API  | @napi-rs/canvas        |
-
-
 
 ## Keyboard Shortcuts
 

@@ -70,22 +70,6 @@ pnpm dev
 
 > **レンダリングAPI** は開発モードで自動的に同一ポートで利用可能です——`GET /render?data=<base64>` または `POST /render`（JSON body）。詳細は[サーバードキュメント](server/index.mjs)を参照。
 
----
-
-## 技術スタック
-
-| レイヤー     | ツール                  |
-| ------------ | ----------------------- |
-| ビルド       | Vite                    |
-| UI           | React 19 + TypeScript   |
-| キャンバス   | Konva + react-konva     |
-| 状態管理     | Zustand + immer         |
-| スタイリング | Tailwind CSS v4         |
-| コンポーネント| shadcn/ui (Radix)       |
-| アイコン     | Lucide                  |
-| レンダーAPI  | @napi-rs/canvas         |
-
-
 
 ## Render API
 
