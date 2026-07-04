@@ -20,10 +20,12 @@ function mapRenderPlugin(): Plugin {
     async configureServer(server) {
       // Load the render module
       try {
+        // @ts-expect-error -- server/map-render.mjs has no TS declarations
         const mod = await import('./server/map-render.mjs')
         renderMap = mod.renderMap
         loaded = true
-        const port = server.httpServer?.address()?.port || 5173
+        const addr = server.httpServer?.address()
+        const port = addr && typeof addr !== 'string' ? addr.port : 5173
         console.log(`[Map] Render API ready at http://localhost:${port}/api`)
       } catch (e) {
         console.warn('[map-render] Failed to load render module:', (e as Error).message)
@@ -126,7 +128,8 @@ Content-Type: application/json
 
         // API info page
         if (pathname === '/api' || pathname === '/api/') {
-          const port = server.httpServer?.address()?.port || 5173
+const addr = server.httpServer?.address()
+          const port = addr && typeof addr !== 'string' ? addr.port : 5173
           res.writeHead(200, { 'Content-Type': 'text/html' })
           res.end(renderInfoPage(port))
           return
