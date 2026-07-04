@@ -114,21 +114,13 @@ Content-Type: application/json
         res.end(pngBuffer)
       }
 
-      // ── Route handler ──
-      server.middlewares.use((req, res, next) => {
-        const host = req.headers.host || 'localhost'
-        const url = new URL(req.url!, `http://${host}`)
-        const pathname = url.pathname
+      // ── API routes (mounted at /api) ──
+      server.middlewares.use('/api', (req, res, next) => {
+        // req.url here is the path after /api prefix
+        const pathname = req.url || '/'
 
-        // Legacy redirects
-        if (pathname === '/render' || pathname === '/health') {
-          res.writeHead(308, { Location: `/api${pathname}` })
-          res.end()
-          return
-        }
-
-        // API info page
-        if (pathname === '/api' || pathname === '/api/') {
+        // Info page at /api or /api/
+        if (pathname === '/' || pathname === '') {
           const addr = server.httpServer?.address()
           const port = addr && typeof addr !== 'string' ? addr.port : 5173
           res.writeHead(200, { 'Content-Type': 'text/html' })
@@ -136,8 +128,8 @@ Content-Type: application/json
           return
         }
 
-        // Render endpoint
-        if (pathname === '/api/render') {
+        // Render endpoint at /api/render
+        if (pathname === '/render') {
           if (req.method === 'OPTIONS') {
             res.setHeader('Access-Control-Allow-Origin', '*')
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -153,6 +145,7 @@ Content-Type: application/json
             return
           }
 
+          const url = new URL(req.url!, `http://${req.headers.host || 'localhost'}`)
           handleRender(req, res, url).catch((err: Error) => {
             res.writeHead(400, { 'Content-Type': 'text/plain' })
             res.end(`Render error: ${err.message}`)
@@ -160,14 +153,24 @@ Content-Type: application/json
           return
         }
 
-        // Health check
-        if (pathname === '/api/health') {
+        // Health check at /api/health
+        if (pathname === '/health') {
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify({ ok: true, version: 1, renderLoaded: loaded }))
           return
         }
 
         next()
+      })
+
+      // ── Legacy redirects ──
+      server.middlewares.use('/render', (_req, res, _next) => {
+        res.writeHead(308, { Location: '/api/render' })
+        res.end()
+      })
+      server.middlewares.use('/health', (_req, res, _next) => {
+        res.writeHead(308, { Location: '/api/health' })
+        res.end()
       })
     },
   }
