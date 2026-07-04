@@ -59,6 +59,9 @@
 # 依存関係をインストール
 pnpm install
 
+# Gitフックを設定（コミットチェック）
+git config core.hooksPath .githooks
+
 # 開発サーバーを起動
 pnpm dev
 ```

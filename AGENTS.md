@@ -252,7 +252,8 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 | `pnpm typecheck` | TypeScript 类型检查 |
 | `pnpm test` | 运行测试 |
 | `pnpm doc-tree` | 输出当前 `src/` 目录树 |
-| `pnpm doc-tree:check` | 检查 README/AGENTS 的目录树是否最新 |
+| `pnpm doc-tree:check` | 检查 AGENTS.md 目录树是否最新 |
+| `git config core.hooksPath .githooks` | 启用 pre-commit hook（克隆后首次运行） |
 
 ### 目录树自动维护
 

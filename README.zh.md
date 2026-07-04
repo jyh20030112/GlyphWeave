@@ -59,6 +59,9 @@
 # 安装依赖
 pnpm install
 
+# 设置 git hooks（提交检查）
+git config core.hooksPath .githooks
+
 # 启动开发服务器
 pnpm dev
 ```

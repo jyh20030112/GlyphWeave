@@ -59,6 +59,9 @@ Each tile is an ASCII glyph (`#`, `.`, `~`, `♣`, …). **Weave** them into a c
 # Install dependencies
 pnpm install
 
+# Set up git hooks (commit checks)
+git config core.hooksPath .githooks
+
 # Start development server
 pnpm dev
 ```
