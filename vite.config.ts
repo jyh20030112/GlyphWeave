@@ -727,10 +727,10 @@ Source: <a href="https://github.com/HsiangNianian/GlyphWeave">github.com/HsiangN
     writeBundle() {
       const outDir = path.resolve(__dirname, 'dist')
       const apiDir = path.join(outDir, 'api')
-      const baseUrl = 'https://hsiangnianian.github.io/GlyphWeave'
+      const baseUrl = process.env.CF_PAGES_URL || process.env.PUBLIC_URL || 'https://[your-domain]'
       fs.mkdirSync(apiDir, { recursive: true })
       fs.writeFileSync(path.join(apiDir, 'index.html'), agentsInfoPage(baseUrl))
-      console.log('[Agents] Generated api/index.html for gh-pages')
+      console.log('[Agents] Generated api/index.html (baseUrl=' + baseUrl + ')')
     },
   }
 }
