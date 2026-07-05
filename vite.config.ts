@@ -478,6 +478,15 @@ Below are some common grid patterns (W=wall, F=floor, _=void):</p>
 //   W F F F W
 //   W W W W W</code></pre>
 
+<!-- ============================================================ -->
+<h2>11. Agent Skill</h2>
+
+<p>A dedicated <strong>GlyphWeave Map Generator</strong> Agent Skill is available for Pi coding agent.
+It provides step-by-step generation workflows, coordinate math, design patterns, and working-with-existing-maps guidance.
+The skill auto-triggers when you ask to generate or modify a map.</p>
+
+<p>Location: <code>~/.agents/skills/glyphweave-map-generator/</code></p>
+
 <hr>
 <footer style="color:#555;font-size:.85em;margin-top:3em">
 GlyphWeave — Tilemap editor and renderer.
