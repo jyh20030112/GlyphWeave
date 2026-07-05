@@ -1,25 +1,22 @@
 import { renderMapSVG } from '../server/map-render-svg.mjs'
 import { apiDocPage } from '../server/api-doc.mjs'
+import { Resvg, initWasm } from '@resvg/resvg-wasm'
 
 interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
 }
 
-let resvgInit: Promise<any> | null = null
-function getResvg(env: Env) {
+let resvgInit: Promise<void> | null = null
+function ensureWasm(origin: string) {
   if (!resvgInit) {
     resvgInit = (async () => {
-      const wasmResponse = await env.ASSETS.fetch(new URL('/resvg-wasm.wasm', 'http://placeholder'))
+      const wasmResponse = await fetch(`${origin}/resvg-wasm.wasm`)
       const wasmBytes = await wasmResponse.arrayBuffer()
-      const resvgPkg = await import('@resvg/resvg-wasm')
-      await resvgPkg.initWasm(wasmBytes)
-      return resvgPkg
+      await initWasm(wasmBytes)
     })()
   }
   return resvgInit
 }
-
-
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -39,7 +36,7 @@ export default {
 
     // ── /api (documentation) ──
     if (url.pathname === '/api' || url.pathname === '/api/') {
-      return new Response(apiDocPage('https://glyphweave.hydroroll.team'), { headers: { ...corsHeaders, 'Content-Type': 'text/html' } })
+      return new Response(apiDocPage(url.origin), { headers: { ...corsHeaders, 'Content-Type': 'text/html' } })
     }
 
     // ── /api/health ──
@@ -81,8 +78,8 @@ export default {
         const svg = renderMapSVG(data, { themeId, padding, scale })
 
         if (format === 'png') {
-          const r = await getResvg(env)
-          const resvg = new r.Resvg(svg, { fitTo: { mode: 'original' } })
+          await ensureWasm(url.origin)
+          const resvg = new Resvg(svg, { fitTo: { mode: 'original' } })
           const pngBuffer = resvg.render().asPng()
           return new Response(pngBuffer, {
             headers: { ...corsHeaders, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' },
