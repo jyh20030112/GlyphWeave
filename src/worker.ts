@@ -4,15 +4,14 @@ import { Resvg, initWasm } from '@resvg/resvg-wasm'
 
 interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
+  RESVG_WASM: WebAssembly.Module
 }
 
 let resvgInit: Promise<void> | null = null
-function ensureWasm(origin: string) {
+function ensureWasm(env: Env) {
   if (!resvgInit) {
     resvgInit = (async () => {
-      const wasmResponse = await fetch(`${origin}/resvg-wasm.wasm`)
-      const wasmBytes = await wasmResponse.arrayBuffer()
-      await initWasm(wasmBytes)
+      await initWasm(env.RESVG_WASM)
     })()
   }
   return resvgInit
@@ -78,7 +77,7 @@ export default {
         const svg = renderMapSVG(data, { themeId, padding, scale })
 
         if (format === 'png') {
-          await ensureWasm(url.origin)
+          await ensureWasm(env)
           const resvg = new Resvg(svg, { fitTo: { mode: 'original' } })
           const pngBuffer = resvg.render().asPng()
           return new Response(pngBuffer, {

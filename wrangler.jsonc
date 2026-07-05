@@ -6,6 +6,9 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  "wasm_modules": {
+    "RESVG_WASM": "dist/resvg-wasm.wasm"
+  },
   "assets": {
     "directory": "dist"
   }
