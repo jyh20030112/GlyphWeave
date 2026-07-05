@@ -60,7 +60,7 @@ export function MapCanvas({ containerRef, stageRef }: MapCanvasProps) {
 
   const visibleRange = useMemo(
     () => getVisibleRange(stageRef.current, tileSize, size.width, size.height, viewDistance),
-    [size, tileSize, tiles, viewDistance, stageRef.current, blockSize],
+    [size, tileSize, tiles, viewDistance, stageRef.current],
   )
 
   const visibleTiles = useMemo(() => {
