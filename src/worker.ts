@@ -4,12 +4,27 @@ interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
 }
 
+let resvgInit: Promise<any> | null = null
+function getResvg(env: Env) {
+  if (!resvgInit) {
+    resvgInit = (async () => {
+      // Load wasm via ASSETS binding (available in Workers + Assets)
+      const wasmResponse = await env.ASSETS.fetch(new Request(new URL('https://placeholder/resvg-wasm.wasm')))
+      const wasmBytes = await wasmResponse.arrayBuffer()
+      const resvgPkg = await import('@resvg/resvg-wasm')
+      await resvgPkg.initWasm(wasmBytes)
+      return resvgPkg
+    })()
+  }
+  return resvgInit
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
     const method = request.method
+    const format = url.searchParams.get('format') || 'svg'
 
-    // CORS for API endpoints
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -20,14 +35,12 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders })
     }
 
-    // ── /api/health ──
     if (url.pathname === '/api/health') {
       return new Response(JSON.stringify({ ok: true, version: 1 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // ── /api/render ──
     if (url.pathname === '/api/render') {
       try {
         let data: any
@@ -46,9 +59,7 @@ export default {
               : undefined
         } else if (method === 'GET') {
           const dataB64 = url.searchParams.get('data')
-          if (!dataB64) {
-            return new Response('Missing "data" parameter', { status: 400 })
-          }
+          if (!dataB64) return new Response('Missing "data" parameter', { status: 400 })
           const json = atob(dataB64)
           data = JSON.parse(json)
           themeId = url.searchParams.get('theme') || 'ansi-16'
@@ -59,12 +70,18 @@ export default {
         }
 
         const svg = renderMapSVG(data, { themeId, padding, scale })
+
+        if (format === 'png') {
+          const r = await getResvg(env)
+          const resvg = new r.Resvg(svg, { fitTo: { mode: 'original' } })
+          const pngBuffer = resvg.render().asPng()
+          return new Response(pngBuffer, {
+            headers: { ...corsHeaders, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' },
+          })
+        }
+
         return new Response(svg, {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'image/svg+xml',
-            'Cache-Control': 'public, max-age=3600',
-          },
+          headers: { ...corsHeaders, 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' },
         })
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e)
@@ -72,7 +89,7 @@ export default {
       }
     }
 
-    // ── SPA fallback: serve via ASSETS, fall back to index.html ──
+    // SPA fallback
     try {
       const response = await env.ASSETS.fetch(request)
       if (response.status === 404) {
