@@ -1,27 +1,14 @@
 import { renderMapSVG } from '../server/map-render-svg.mjs'
 import { apiDocPage } from '../server/api-doc.mjs'
-import { Resvg, initWasm } from '@resvg/resvg-wasm'
 
 interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> }
-  RESVG_WASM: WebAssembly.Module
-}
-
-let resvgInit: Promise<void> | null = null
-function ensureWasm(env: Env) {
-  if (!resvgInit) {
-    resvgInit = (async () => {
-      await initWasm(env.RESVG_WASM)
-    })()
-  }
-  return resvgInit
 }
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url)
     const method = request.method
-    const format = url.searchParams.get('format') || 'svg'
 
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
@@ -33,19 +20,16 @@ export default {
       return new Response(null, { status: 204, headers: corsHeaders })
     }
 
-    // ── /api (documentation) ──
     if (url.pathname === '/api' || url.pathname === '/api/') {
       return new Response(apiDocPage(url.origin), { headers: { ...corsHeaders, 'Content-Type': 'text/html' } })
     }
 
-    // ── /api/health ──
     if (url.pathname === '/api/health') {
       return new Response(JSON.stringify({ ok: true, version: 1 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // ── /api/render ──
     if (url.pathname === '/api/render') {
       try {
         let data: any
@@ -75,16 +59,6 @@ export default {
         }
 
         const svg = renderMapSVG(data, { themeId, padding, scale })
-
-        if (format === 'png') {
-          await ensureWasm(env)
-          const resvg = new Resvg(svg, { fitTo: { mode: 'original' } })
-          const pngBuffer = resvg.render().asPng()
-          return new Response(pngBuffer, {
-            headers: { ...corsHeaders, 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' },
-          })
-        }
-
         return new Response(svg, {
           headers: { ...corsHeaders, 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' },
         })
@@ -94,7 +68,6 @@ export default {
       }
     }
 
-    // SPA fallback
     try {
       const response = await env.ASSETS.fetch(request)
       if (response.status === 404) {
