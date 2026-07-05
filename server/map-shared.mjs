@@ -2,7 +2,7 @@
  * Shared tilemap data and utilities.
  * No native dependencies — safe for Node.js and Cloudflare Workers.
  */
-const TILE_TYPES = {
+export const TILE_TYPES = {
   void:       { id: 'void',       char: ' ',  category: 'terrain' },
   wall:       { id: 'wall',       char: '#',  category: 'wall' },
   floor:      { id: 'floor',      char: '.',  category: 'floor' },
@@ -32,7 +32,7 @@ const TILE_TYPES = {
 }
 
 
-const THEMES = {
+export const THEMES = {
   'ansi-16': {
     name: 'ANSI 16',
     colors: {
@@ -98,11 +98,11 @@ const THEMES = {
 }
 
 
-const MAX_OUTPUT_SIZE = 4096
-const TILE_SIZE = 24
+export const MAX_OUTPUT_SIZE = 4096
+export const TILE_SIZE = 24
 
 
-function flattenTiles(data) {
+export function flattenTiles(data) {
   if (data.layerTiles && data.layers) {
     const result = {}
     for (const layer of data.layers) {
@@ -124,7 +124,7 @@ function flattenTiles(data) {
  */
 
 
-function computeBounds(tiles) {
+export function computeBounds(tiles) {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const key of Object.keys(tiles)) {
     const [sx, sy] = key.split(',')

@@ -3,7 +3,7 @@
  * Zero native dependencies — generates pure SVG strings.
  */
 
-import { flattenTiles, computeBounds, TILE_TYPES, THEMES } from './map-shared.mjs'
+import { flattenTiles, computeBounds, TILE_TYPES, THEMES, TILE_SIZE, MAX_OUTPUT_SIZE } from './map-shared.mjs'
 
 export function renderMapSVG(data, options = {}) {
   const themeId = options.themeId || 'ansi-16'

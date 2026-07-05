@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { renderMap } from '../../../../server/map-render.mjs'
+import { renderMapSVG } from '../../../../server/map-render-svg.mjs'
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,8 +9,8 @@ export async function POST(request: NextRequest) {
     const padding = parseInt(u.searchParams.get('padding') || body.padding || '1', 10)
     const scale = u.searchParams.get('scale') ? parseFloat(u.searchParams.get('scale')!) : (body.scale ? parseFloat(body.scale) : undefined)
 
-    const png = renderMap(body, { themeId, padding, scale })
-    return new NextResponse(png, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' } })
+    const svg = renderMapSVG(body, { themeId, padding, scale })
+    return new NextResponse(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' } })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     return new NextResponse(`Error: ${msg}`, { status: 400 })
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
     const padding = parseInt(u.searchParams.get('padding') || '1', 10)
     const scale = u.searchParams.get('scale') ? parseFloat(u.searchParams.get('scale')!) : undefined
 
-    const png = renderMap(data, { themeId, padding, scale })
-    return new NextResponse(png, { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' } })
+    const svg = renderMapSVG(data, { themeId, padding, scale })
+    return new NextResponse(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' } })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     return new NextResponse(`Error: ${msg}`, { status: 400 })

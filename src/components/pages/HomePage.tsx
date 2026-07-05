@@ -200,7 +200,7 @@ export function HomePage({ onStart }: HomePageProps) {
 
         <div className="flex justify-center pt-2">
           <a
-            href={`${import.meta.env.BASE_URL}api`}
+            href={`/api`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
